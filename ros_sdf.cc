@@ -23,14 +23,13 @@ namespace gazebo
     private: std::thread rosQueueThread;
 
     private: physics::ModelPtr model;
-    private: physics::JointPtr joints[];
+    private: physics::JointPtr *joints;
     private: common::PID pid;
+    private: int num_joints;
 
     public: virtual void Load(physics::ModelPtr _model, sdf::ElementPtr _sdf)
     {
-      int i, num_joints;
-
-      if ((num_joints = _model->GetJointCount()) == 0)
+      if ((this->num_joints = _model->GetJointCount()) == 0)
       {
         std::cerr << "Invalid joint count, ROS_SDF plugin not loaded\n";
         return;
@@ -41,11 +40,12 @@ namespace gazebo
       }
 
       this->model = _model;
+      this->joints = new physics::JointPtr[this->num_joints]; //need to delete this 
 
-      for(i = 0; i < 6; i++)
+      for(int i = 0; i < this->num_joints; i++)
       {
-        this->piston[i] = _model->GetJoints()[i];
-        this->model->GetJointController()->SetPositionPID(this->piston[i]->GetScopedName(), this->pid);
+        this->joints[i] = _model->GetJoints()[i];
+        this->model->GetJointController()->SetPositionPID(this->joints[i]->GetScopedName(), this->pid);
       }
 
       if (!ros::isInitialized())
@@ -56,7 +56,7 @@ namespace gazebo
       }
 
       this->rosNode.reset(new ros::NodeHandle("gazebo_client"));
-      ros::SubscribeOptions so =ros::SubscribeOptions::create<std_msgs::Float32MultiArray>("/" + this->model->GetName() + "/piston_cmd", 
+      ros::SubscribeOptions so =ros::SubscribeOptions::create<std_msgs::Float32MultiArray>("/" + this->model->GetName() + "/position_cmd", 
                                                                                           100, 
                                                                                           boost::bind(&ROS_SDF::SetPosition, this, _1),
                                                                                           ros::VoidPtr(), &this->rosQueue);
@@ -67,9 +67,9 @@ namespace gazebo
 
     public: void SetPosition(const std_msgs::Float32MultiArray::ConstPtr& msg)
     {
-      for(int i = 0; i < 6; i++)
+      for(int i = 0; i < this->num_joints; i++)
       {
-        this->model->GetJointController()->SetPositionTarget(this->piston[i]->GetScopedName(), msg->data[i]);
+        this->model->GetJointController()->SetPositionTarget(this->joints[i]->GetScopedName(), msg->data[i]);
       }
     }
 

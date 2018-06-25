@@ -91,9 +91,7 @@ namespace gazebo
         this->rosQueue.callAvailable(ros::WallDuration(timeout));
       }
     }
-
-    public
-
+    
   };
 
   GZ_REGISTER_MODEL_PLUGIN(ROS_SDF)
